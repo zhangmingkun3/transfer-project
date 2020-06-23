@@ -11,13 +11,12 @@ import java.io.IOException;
  */
 public class OpenExe {
 
-    public static void runExe(){
+    public static void runExe(String receiveMessageRequest){
 
-        String cmd = "C:\\Users\\zhangmingkun3\\AppData\\Local\\Postman\\Postman.exe";
         BufferedReader br = null;
         BufferedReader brError = null;;
         try {
-            Process p = Runtime.getRuntime().exec(cmd);
+            Process p = Runtime.getRuntime().exec(receiveMessageRequest);
             String line = null;
             br = new BufferedReader(new InputStreamReader(p.getInputStream()));
             brError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
@@ -36,13 +35,20 @@ public class OpenExe {
                     e.printStackTrace();
                 }
             }
+            if (brError != null){
+                try {
+                    brError.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
     }
 
     public static void main(String[] args) {
 
-        runExe();
+//        runExe();
 
     }
 

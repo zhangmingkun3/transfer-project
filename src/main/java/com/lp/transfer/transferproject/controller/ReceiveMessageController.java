@@ -2,6 +2,7 @@ package com.lp.transfer.transferproject.controller;
 
 import com.lp.transfer.transferproject.bean.ReceiveMessageRequest;
 import com.lp.transfer.transferproject.enums.Response;
+import com.lp.transfer.transferproject.utils.OpenExe;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,9 +20,15 @@ public class ReceiveMessageController {
     @ResponseBody
     public Response<String> receiveMessage(@RequestBody ReceiveMessageRequest receiveMessageRequest){
 
+        try {
+            OpenExe.runExe(receiveMessageRequest.getProgramPath());
+            return Response.success("成功");
+        }catch (Throwable e){
+            return Response.fail("失败 " + e.getMessage());
+        }
 
 
-        return Response.success("成功");
+
     }
 
     @RequestMapping("result")

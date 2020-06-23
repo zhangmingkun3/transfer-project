@@ -14,6 +14,6 @@ import java.io.Serializable;
 @Data
 public class ReceiveMessageRequest implements Serializable{
 
-    private String message;
+    private String programPath;
 
 }
