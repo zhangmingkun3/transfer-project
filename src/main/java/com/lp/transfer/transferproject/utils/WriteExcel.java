@@ -1,14 +1,14 @@
 package com.lp.transfer.transferproject.utils;
-
+import jdk.nashorn.internal.runtime.regexp.joni.Regex;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.File;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,56 +43,118 @@ public class WriteExcel {
 
     }
 
-    private static void write(String filepath,String fileName,String sheetName){
+    public static void main(String[] args) {
 
-        boolean success = false;
+        int[] array1 = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+        int[] array2 = {2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2};
+        int[] array3 = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,};
+
+        write("C:\\Users\\User\\","填充.xlsx","sheet1",array1,array2,array3);
+
+
+//        checkPath("/export/servers/");
+    }
+
+
+
+
+    /**
+     *
+     * @param filePath  excel存储路径
+     * @param fileName  excel文件名称
+     * @param sheetName sheet名称
+     */
+    public static void write(String filePath,String fileName,String sheetName,int[] array1,int[] array2,int[] array3){
+
         OutputStream outputStream = null;
 
-        if (StringUtils.isEmpty(filepath)){
+        if (StringUtils.isEmpty(filePath)){
             throw new IllegalArgumentException("文件路径不能为空");
-        }else{
-//            String suffiex = getSuffiex(filepath);
-//            if (StringUtils.isBlank(suffiex)) {
-//                throw new IllegalArgumentException("文件后缀不能为空");
-//            }
-//            Workbook workbook;
-//            if ("xls".equals(suffiex.toLowerCase())) {
-//                workbook = new HSSFWorkbook();
-//            } else {
-//                workbook = new XSSFWorkbook();
-//            }
-
-            File NewxlsFile = new File("C:\\Users\\zhangmingkun3\\Desktop\\user_lable1.xlsx");
-
-            // 创建一个工作簿
-            XSSFWorkbook workbook = new XSSFWorkbook();
-            // 创建一个工作表
-            XSSFSheet sheet = workbook.createSheet("sheet1");
-
-            // 设置表格默认列宽度为15个字节
-            sheet.setDefaultColumnWidth((short) 15);
-            // 生成样式
-            Map<String, CellStyle> styles = createStyles(workbook);
-
-            // 创建标题行
-            Row row0 = sheet.createRow(0);
-            Row row1 = sheet.createRow(1);
-            // 存储标题在Excel文件中的序号
-            Map<String, Integer> titleOrder = new HashMap<>();
-            for (int i = 0; i < cellName.size(); i++) {
-                Cell cell = row0.createCell(i);
-                cell.setCellStyle(styles.get("header"));
-                String title = cellName.get(i);
-                cell.setCellValue(title);
-                titleOrder.put(title, i);
-            }
-
-            for(Map.Entry entry : cellName.entrySet()){
-
-            }
-
+        }else if (checkPath(filePath)){
+            throw new IllegalArgumentException("文件路径不符合格式");
         }
 
+        if (StringUtils.isEmpty(sheetName)){
+            sheetName = "sheet1";
+        }
+        if (StringUtils.isBlank(fileName)) {
+            throw new IllegalArgumentException("文件后缀不能为空");
+        }
+
+        if (null == array1 || null == array2 || null == array3){
+            throw new IllegalArgumentException("excel填充内容不能是空");
+        }else{
+            if (array1.length != array2.length || array1.length != array3.length){
+                throw new IllegalArgumentException("excel填充内容必须数量相同");
+            }
+        }
+
+        Workbook workbook;
+        if ("xls".equals(fileName.toLowerCase())) {
+            workbook = new HSSFWorkbook();
+        } else {
+            workbook = new XSSFWorkbook();
+        }
+        File newxlsFile = new File(filePath + fileName);
+
+        // 创建一个工作表
+        XSSFSheet sheet = (XSSFSheet) workbook.createSheet(sheetName);
+        // 设置表格默认列宽度为15个字节
+        sheet.setDefaultColumnWidth((short) 15);
+        // 生成样式
+        Map<String, CellStyle> styles = createStyles(workbook);
+
+
+        for (int j = 0; j < array1.length; j ++){
+            if (j < 2){
+                Row row0 = sheet.createRow(0);
+                Row row1 = sheet.createRow(1);
+                for (int i = 0; i < cellName.size(); i++) {
+                    Cell cell = row0.createCell(i);
+                    Cell cell1 = row1.createCell(i);
+                    cell.setCellStyle(styles.get("header"));
+                    cell1.setCellStyle(styles.get("header"));
+                    String titleKey = String.valueOf(i+1);
+                    String title = cellName.get(titleKey);
+                    cell.setCellValue(titleKey);
+                    cell1.setCellValue(title);
+                }
+            }else{
+                Row rowNumber = sheet.createRow(j);
+                for (int i = 0; i < cellName.size(); i ++){
+
+                    int index = i + 1;
+                    Cell cellNumber = rowNumber.createCell(i);
+                    if (index % 3 == 1){
+                        cellNumber.setCellValue(array1[j-2]);
+                    }else if (index % 3 == 2){
+                        cellNumber.setCellValue(array2[j-2]);
+                    }else if (index % 3 == 0){
+                        cellNumber.setCellValue(array3[j-2]);
+                    }
+                    cellNumber.setCellStyle(styles.get("cell"));
+                }
+            }
+        }
+        try {
+            outputStream = new FileOutputStream(newxlsFile);
+            workbook.write(outputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                workbook.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 
@@ -135,7 +197,7 @@ public class WriteExcel {
         XSSFCellStyle headerStyle = (XSSFCellStyle) wb.createCellStyle();
         headerStyle.setAlignment(HorizontalAlignment.CENTER);
         headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-        headerStyle.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex()); // 前景色
+        headerStyle.setFillForegroundColor(IndexedColors.WHITE.getIndex()); // 前景色
         headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND); // 颜色填充方式
         headerStyle.setWrapText(true);
         headerStyle.setBorderRight(BorderStyle.THIN); // 设置边界
@@ -148,7 +210,7 @@ public class WriteExcel {
         headerStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex());
         Font headerFont = wb.createFont();
         headerFont.setFontHeightInPoints((short) 12);
-        headerFont.setColor(IndexedColors.WHITE.getIndex());
+        headerFont.setColor(IndexedColors.BLACK.getIndex());
         titleFont.setFontName("微软雅黑");
         headerStyle.setFont(headerFont);
         styles.put("header", headerStyle);
@@ -172,28 +234,21 @@ public class WriteExcel {
         cellStyleA.setBorderBottom(BorderStyle.THIN);
         cellStyleA.setBottomBorderColor(IndexedColors.BLACK.getIndex());
         cellStyleA.setFont(cellStyleFont);
-        styles.put("cellA", cellStyleA);
-
-        // 正文样式B:添加前景色为浅黄色
-        XSSFCellStyle cellStyleB = (XSSFCellStyle) wb.createCellStyle();
-        cellStyleB.setAlignment(HorizontalAlignment.CENTER);
-        cellStyleB.setVerticalAlignment(VerticalAlignment.CENTER);
-        cellStyleB.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
-        cellStyleB.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        cellStyleB.setWrapText(true);
-        cellStyleB.setBorderRight(BorderStyle.THIN);
-        cellStyleB.setRightBorderColor(IndexedColors.BLACK.getIndex());
-        cellStyleB.setBorderLeft(BorderStyle.THIN);
-        cellStyleB.setLeftBorderColor(IndexedColors.BLACK.getIndex());
-        cellStyleB.setBorderTop(BorderStyle.THIN);
-        cellStyleB.setTopBorderColor(IndexedColors.BLACK.getIndex());
-        cellStyleB.setBorderBottom(BorderStyle.THIN);
-        cellStyleB.setBottomBorderColor(IndexedColors.BLACK.getIndex());
-        cellStyleB.setFont(cellStyleFont);
-        styles.put("cellB", cellStyleB);
+        styles.put("cell", cellStyleA);
 
         return styles;
     }
 
+
+    /**
+     * @param path  文件路径  /export/servers/   main中测试是windows！！！
+     * @return
+     */
+    private static boolean checkPath(String path) {
+        java.util.regex.Pattern p=java.util.regex.Pattern.compile("(^//.|^/|^[a-zA-Z])?:?/.+(/$)?");
+        java.util.regex.Matcher m=p.matcher(path);
+        //不符合要求直接返回
+        return m.matches();
+    }
 
 }
