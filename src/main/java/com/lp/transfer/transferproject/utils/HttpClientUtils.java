@@ -5,7 +5,10 @@ import com.lp.transfer.transferproject.bean.HttpResponse;
 import com.lp.transfer.transferproject.bean.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -14,60 +17,22 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.HTTP;
+import org.apache.http.util.EntityUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 @Slf4j
 public class HttpClientUtils {
 
-    private static HttpGet defaultGet(String url) {
-        HttpGet httpGet = new HttpGet(url);
-        httpGet.setConfig(defaultConfig());
-        return httpGet;
-    }
-
-    private static HttpPost defaultPost(String url) {
-        HttpPost httpGet = new HttpPost(url);
-        httpGet.setConfig(defaultConfig());
-        return httpGet;
-    }
-
-    private static RequestConfig defaultConfig() {
-        return RequestConfig.custom()
-                .setConnectTimeout(1000)
-                .setConnectionRequestTimeout(1000)
-                .setSocketTimeout(1000).build();
-    }
-
-
-    private static HttpPost defaultPost(String url, String body) {
-        HttpPost httpPost = new HttpPost(url);
-        httpPost.setConfig(defaultConfig());
-        StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
-        httpPost.setEntity(entity);
-        return httpPost;
-    }
-
-    public static void httpGetRequest(String url, Consumer<String> consumer) throws IOException {
-        httpRequest(HttpClients.createDefault(), defaultGet(url), consumer);
-    }
-
-    public static HttpResponse httpGetRequest(String url) throws IOException {
-        return httpRequest(HttpClients.createDefault(), defaultGet(url));
-    }
-
-    public static void httpPostRequest(String url, String body,  Consumer<String> consumer) throws IOException {
-        httpRequest(HttpClients.createDefault(), defaultPost(url, body), consumer);
-    }
-
-
-    public static HttpResponse httpPostRequest(String url, String body) throws IOException {
-        return httpRequest(HttpClients.createDefault(), defaultPost(url, body));
-    }
-
+    private String agent =  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/51.0.2704.79 Chrome/51.0.2704.79 Safari/537.36";
 
     /**
      * 发起HTTP请求
@@ -106,4 +71,56 @@ public class HttpClientUtils {
             throw new IOException("http request not success, status : " + response.getStatusLine().getStatusCode());
         }
     }
+
+
+    /**
+     * Post 方式请求，返回响应内容
+     *
+     * @param  address 请求地址
+     * @param  params 请求参数
+     * @return String 响应内容
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public String post(String address, Map<String, Object> params) throws ClientProtocolException, IOException {
+
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+
+        HttpPost httpPost = new HttpPost(address);
+        org.apache.http.HttpResponse httpResponse = null;
+        try {
+            List<NameValuePair> data = buildPostData(params);
+            httpPost.setEntity(new UrlEncodedFormEntity(data, HTTP.UTF_8));
+            httpPost.setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            httpPost.setHeader("User-Agent", agent);
+
+            httpResponse = httpClient.execute(httpPost);
+
+            HttpEntity entity = httpResponse.getEntity();
+            return EntityUtils.toString(entity, HTTP.UTF_8);
+        } finally {
+            if (httpResponse != null) {
+                try {
+                    EntityUtils.consume(httpResponse.getEntity()); //会自动释放连接
+                } catch (Exception e) {
+                }
+            }
+        }
+    }
+
+    private List<NameValuePair> buildPostData(Map<String, Object> params) {
+        if (params == null || params.size() == 0) {
+            return new ArrayList<NameValuePair>(0);
+        }
+        List<NameValuePair> ret = new ArrayList<NameValuePair>(params.size());
+        for (String key : params.keySet()) {
+            Object p = params.get(key);
+            if (key != null && p != null) {
+                NameValuePair np = new BasicNameValuePair(key, p.toString());
+                ret.add(np);
+            }
+        }
+        return ret;
+    }
+
 }
