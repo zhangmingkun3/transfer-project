@@ -1,15 +1,30 @@
 package com.lp.transfer.transferproject.utils;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.*;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @Author: zhangmingkun3
  * @Description:
  * @Date: 2020/6/11 15:36
  */
+@Slf4j
 public class FileUtils {
 
     private static final String FILEPATH = "C:\\Users\\zhangmingkun3\\Desktop\\";
@@ -50,8 +65,43 @@ public class FileUtils {
 
     }
 
-    public static void main(String[] args) {
-        writeFile("zmk","1234546");
+
+    public static JSONObject readExcel(String sinkPath) throws IOException {
+        log.info("读取excel文件。。。。。。");
+        long start = System.currentTimeMillis();
+        List<Double> list1 = new ArrayList<>();
+        List<Double> list2 = new ArrayList<>();
+        List<Double> list3 = new ArrayList<>();
+
+        FileInputStream fileInputStream = new FileInputStream(new File(sinkPath));
+        XSSFWorkbook workbook = new XSSFWorkbook(fileInputStream);
+
+        XSSFSheet sheet = workbook.getSheetAt(0);
+        for (int j = 0; j < sheet.getLastRowNum() + 1; j++) {
+            XSSFRow row = sheet.getRow(j);
+            if (row != null) {
+                list1.add(row.getCell(0).getNumericCellValue());
+                list2.add(row.getCell(1).getNumericCellValue());
+                list3.add(row.getCell(2).getNumericCellValue());
+            }
+        }
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("array1",list1.toArray(new Double[0]));
+        jsonObject.put("array2",list2.toArray(new Double[0]));
+        jsonObject.put("array3",list3.toArray(new Double[0]));
+
+        log.info("读取excel文件完成 执行时间{} 数据结果{}", System.currentTimeMillis() - start,jsonObject.toJSONString());
+        fileInputStream.close();
+        return jsonObject;
+
+    }
+
+    public static void main(String[] args) throws IOException {
+//        writeFile("zmk","1234546");
+
+        System.out.println(JSON.toJSONString(readExcel("C:\\Users\\User\\Desktop\\Result.xlsx")));
+
     }
 
 

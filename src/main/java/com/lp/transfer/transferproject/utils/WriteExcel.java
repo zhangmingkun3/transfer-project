@@ -1,5 +1,6 @@
 package com.lp.transfer.transferproject.utils;
 import jdk.nashorn.internal.runtime.regexp.joni.Regex;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -17,6 +18,7 @@ import java.util.Map;
  * @Description:
  * @Date: 2020/6/13 17:37
  */
+@Slf4j
 public class WriteExcel {
 
     private static Map<String,String> cellName= new HashMap<>();
@@ -45,9 +47,9 @@ public class WriteExcel {
 
     public static void main(String[] args) {
 
-        int[] array1 = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
-        int[] array2 = {2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2};
-        int[] array3 = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,};
+        Integer[] array1 = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+        Integer[] array2 = {2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2};
+        Integer[] array3 = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,};
 
         write("C:\\Users\\User\\","填充.xlsx","sheet1",array1,array2,array3);
 
@@ -64,8 +66,8 @@ public class WriteExcel {
      * @param fileName  excel文件名称
      * @param sheetName sheet名称
      */
-    public static void write(String filePath,String fileName,String sheetName,int[] array1,int[] array2,int[] array3){
-
+    public static void write(String filePath,String fileName,String sheetName,Integer[] array1,Integer[] array2,Integer[] array3){
+        log.info("开始写入excel文件");
         OutputStream outputStream = null;
 
         if (StringUtils.isEmpty(filePath)){

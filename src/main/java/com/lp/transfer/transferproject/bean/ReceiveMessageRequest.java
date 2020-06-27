@@ -14,9 +14,9 @@ import java.io.Serializable;
 @Data
 public class ReceiveMessageRequest implements Serializable{
 
-    private int[] array1;
-    private int[] array2;
-    private int[] array3;
+    private Integer[] array1;
+    private Integer[] array2;
+    private Integer[] array3;
 
 
 }
