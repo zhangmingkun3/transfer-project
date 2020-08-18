@@ -55,6 +55,9 @@ spring:
       # 热部署开关
       enabled: true
 
+socket:
+  port: 18020
+
 transfer:
   programPath: C:\\Users\\Administrator\\Documents\\Main01.exe
   sourcePath: C:\\Download\\apache-tomcat-9.0.36\\\bin\\

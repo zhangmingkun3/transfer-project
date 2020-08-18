@@ -10,6 +10,7 @@ public enum EmReturnCode {
 
     NORMAL_RETURN_CODE("000000000", "成功"),
 
+    COMMON_UNKNOWN_EXCEPTION("000000001", "未知异常:%s"),
 
     DATA_INVALID_EXCEPTION("000000002", "数据非法:%s"),
 
