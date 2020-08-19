@@ -1,5 +1,6 @@
 package com.lp.transfer.transferproject.service;
 
+import com.alibaba.fastjson.JSON;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static com.lp.transfer.transferproject.utils.CacheUtils.localCache;
+import static com.lp.transfer.transferproject.utils.MessageParse.*;
 import static com.lp.transfer.transferproject.utils.ThreadPoolUtils.COMMON_POOL;
 import static com.lp.transfer.transferproject.utils.ThreadPoolUtils.shareMap;
 
@@ -79,10 +81,24 @@ public class SocketServer {
                     byte[] out = toPrimitives(bytes.toArray(new Byte[0]));
 
                     // 解析
+                    String asciiId = bytesToHexString(out);
+                    String id = AsciiStringToString(asciiId).replace("|","");
+                    System.out.println("AsciiId : " + asciiId  + " id ："+ id);
 
+                    List<Integer> totalList = new ArrayList<>();
+                    int sum = 0;
+                    for(int i = 16 ;i <out.length;i+=2){
+                        byte low = out[i];
+                        byte high = out[i+1];
+                        int x = merge(high,low);
+                        short low_short = unsignedByteToShort(low);
+                        short high_short = (short)(((high & 0x00FF) << 8));
+                        System.out.println( "low:" + low_short + "   high : " +  high_short + "   sum :" + x);
+                        sum+=1;
+                        totalList.add(x);
+                    }
 
-
-
+                    System.out.println("总数：sum = " + sum+"   arrayList Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList) );
 
                     len = isr.read(b);
                     response = new String(b, 0, len);
@@ -90,30 +106,28 @@ public class SocketServer {
 
 
 
-                    //获取 key
-                    String key = response;
-                    if (shareMap.containsKey(key)){
-                        Thread thread = shareMap.get(key);
+                    if (shareMap.containsKey(asciiId)){
+                        Thread thread = shareMap.get(asciiId);
 
-                        List<String> list = localCache.get(key);
+                        List<String> list = localCache.get(asciiId);
 
                         if (list.size() > 2999){
                             // 触发计算  调用exe程序
 
                             // 然后重新设置 Map 以及缓存
-                            shareMap.put(key,null);
-                            localCache.put(key,new ArrayList<>());
+                            shareMap.put(asciiId,null);
+                            localCache.put(asciiId,new ArrayList<>());
                         }
 
                         list.add("数据");
-                        localCache.put(key,list);
+                        localCache.put(asciiId,list);
 
                     }else{
 
                         COMMON_POOL.submit(() ->{
                             List<String> list = new ArrayList<>();
                             list.add("数据");
-                            localCache.put(key,list);
+                            localCache.put(asciiId,list);
                         });
 
                     }
