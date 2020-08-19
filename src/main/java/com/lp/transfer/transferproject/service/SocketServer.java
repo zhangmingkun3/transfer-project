@@ -51,17 +51,40 @@ public class SocketServer {
             System.exit(0);
         }
 
+        final int readArraySizePerRead = 4096;
         while (started) {
             try {
                 Socket socket = serverSocket.accept();
                 socket.setKeepAlive(true);
 
-                DataInputStream input = new DataInputStream(socket.getInputStream());
+
                 byte[] b = new byte[1024];
                 int len = 0;
                 String response = "";
                 while (true) {
-                    len = input.read(b);
+
+                    DataInputStream isr = new DataInputStream(socket.getInputStream());
+
+                    ArrayList<Byte> bytes = new ArrayList<>();
+
+                    byte[] tempchars = new byte[readArraySizePerRead];
+                    int charsReadCount = 0;
+                    while ((charsReadCount = isr.read(tempchars)) != -1) {
+                        for(int i = 0 ; i < charsReadCount ; i++){
+                            bytes.add (tempchars[i]);
+                        }
+                    }
+                    isr.close();
+
+                    byte[] out = toPrimitives(bytes.toArray(new Byte[0]));
+
+                    // 解析
+
+
+
+
+
+                    len = isr.read(b);
                     response = new String(b, 0, len);
                     log.info("datadadata", response);
 
@@ -100,5 +123,16 @@ public class SocketServer {
                 e.printStackTrace();
             }
         }
+    }
+
+
+    static byte[] toPrimitives(Byte[] oBytes) {
+        byte[] bytes = new byte[oBytes.length];
+
+        for (int i = 0; i < oBytes.length; i++) {
+            bytes[i] = oBytes[i];
+        }
+
+        return bytes;
     }
 }
