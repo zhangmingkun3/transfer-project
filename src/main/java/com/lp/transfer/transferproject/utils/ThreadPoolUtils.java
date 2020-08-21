@@ -13,7 +13,7 @@ public class ThreadPoolUtils {
     /**
      * key表示设备号建立的数据标识   value 表示接受数据的线程
      */
-    public static Map<String,Thread> shareMap = new ConcurrentHashMap<String, Thread>();
+//    public static Map<String,Thread> shareMap = new ConcurrentHashMap<String, Thread>();
 
     public static final ThreadPoolExecutor COMMON_POOL = new ThreadPoolExecutor(
             0,

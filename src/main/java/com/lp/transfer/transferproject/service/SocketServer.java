@@ -13,11 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import static com.lp.transfer.transferproject.utils.CacheUtils.localCache;
 import static com.lp.transfer.transferproject.utils.MessageParse.*;
 import static com.lp.transfer.transferproject.utils.ThreadPoolUtils.COMMON_POOL;
-import static com.lp.transfer.transferproject.utils.ThreadPoolUtils.shareMap;
 
 /**
  * @Author: zhangmingkun3
@@ -106,8 +104,8 @@ public class SocketServer {
 
 
 
-                    if (shareMap.containsKey(asciiId)){
-                        Thread thread = shareMap.get(asciiId);
+                    if (null != localCache.getIfPresent(asciiId) && localCache.getIfPresent(asciiId).size() > 0){
+//                        Thread thread = shareMap.get(asciiId);
 
                         List<String> list = localCache.get(asciiId);
 
@@ -115,7 +113,6 @@ public class SocketServer {
                             // 触发计算  调用exe程序
 
                             // 然后重新设置 Map 以及缓存
-                            shareMap.put(asciiId,null);
                             localCache.put(asciiId,new ArrayList<>());
                         }
 
