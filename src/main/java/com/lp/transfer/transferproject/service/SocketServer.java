@@ -14,10 +14,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -86,85 +83,99 @@ public class SocketServer {
         }
     }
 
-    private void handle(SelectionKey selectionKey) throws IOException {
+    private void handle(SelectionKey selectionKey){
         ServerSocketChannel serverSocketChannel = null;
         SocketChannel socketChannel = null;
         int count = 0;
         if (selectionKey.isAcceptable()) {
-            ////新连接请求，注册到选择器中   每有客户端连接，即注册通信信道为可读
-            serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
-            socketChannel = serverSocketChannel.accept();
-            socketChannel.configureBlocking(false);
-            socketChannel.register(selector, SelectionKey.OP_READ);
+
+            try {
+                //新连接请求，注册到选择器中   每有客户端连接，即注册通信信道为可读
+                serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
+                socketChannel = serverSocketChannel.accept();
+                socketChannel.configureBlocking(false);
+                socketChannel.register(selector, SelectionKey.OP_READ);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             sendInfo(socketChannel, "连接服务器成功!");
             System.err.println("client IP :" + socketChannel.socket().getRemoteSocketAddress());
-        } else if (selectionKey.isReadable()) {
+        } else if (selectionKey.isReadable()) try {
             //连接可读请求，处理读业务逻辑
             socketChannel = (SocketChannel) selectionKey.channel();
 
-            StringBuilder msg = new StringBuilder();
+//            StringBuilder msg = new StringBuilder();
             ByteBuffer buffer = ByteBuffer.allocate(1024);
             ArrayList<Byte> byteList = new ArrayList<>();
 
-            while(socketChannel.read(buffer) > 0) {
+            while (socketChannel.read(buffer) > 0) {
                 buffer.flip();
-                while(buffer.hasRemaining()){
+                while (buffer.hasRemaining()) {
                     byte[] bytes = buffer.get(new byte[buffer.limit()]).array();
-                    msg.append(new String(buffer.get(new byte[buffer.limit()]).array()));
-                   for (byte b : bytes){
-                       byteList.add(b);
+//                    msg.append(new String(buffer.get(new byte[buffer.limit()]).array()));
+                    for (byte b : bytes) {
+                        byteList.add(b);
                     }
                 }
                 buffer.clear();
             }
-            System.err.println("收到客户端消息:"+msg);
+//            System.err.println("收到客户端消息:" + msg);
 
             byte[] out = toPrimitives(byteList.toArray(new Byte[0]));
 
             // 解析
             String asciiId = bytesToHexString(out);
-            String id = AsciiStringToString(asciiId).replace("|","");
-            System.out.println("AsciiId : " + asciiId  + " id ："+ id);
+            String id = AsciiStringToString(asciiId).replace("|", "");
+            System.out.println("AsciiId : " + asciiId + " id ：" + id);
 
             List<Integer> totalList = new ArrayList<>();
             int sum = 0;
-            for(int i = 16 ;i <out.length;i+=2){
+            for (int i = 16; i < out.length; i += 2) {
                 byte low = out[i];
-                byte high = out[i+1];
-                int x = merge(high,low);
+                byte high = out[i + 1];
+                int x = merge(high, low);
                 short low_short = unsignedByteToShort(low);
-                short high_short = (short)(((high & 0x00FF) << 8));
-                System.out.println( "low:" + low_short + "   high : " +  high_short + "   sum :" + x);
-                sum+=1;
+                short high_short = (short) (((high & 0x00FF) << 8));
+                System.out.println("low:" + low_short + "   high : " + high_short + "   sum :" + x);
+                sum += 1;
                 totalList.add(x);
             }
 
-            System.out.println("总数：sum = " + sum+"   arrayList Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList) );
+            System.out.println("总数：sum = " + sum + "   arrayList Size:" + totalList.size() + "  arrayList:" + JSON
+                    .toJSONString(totalList));
 
+            String response = new String(out, 0, out.length);
+            log.info("datadadata {}", response);
 
-            if (null != localCache.getIfPresent(asciiId) && localCache.getIfPresent(asciiId).size() > 0){
+            if (null != localCache.getIfPresent(asciiId) && localCache.getIfPresent(asciiId).size() > 0) {
                 List<String> list = localCache.get(asciiId);
-                if (list.size() > 2999){
+                if (list.size() > 2999) {
                     // 触发计算  调用exe程序
 
                     // 然后重新设置 Map 以及缓存
-                    localCache.put(asciiId,new ArrayList<>());
+                    localCache.put(asciiId, new ArrayList<>());
                 }
 
                 list.add("数据");
-                localCache.put(asciiId,list);
+                localCache.put(asciiId, list);
 
-            }else{
+            } else {
 
-                COMMON_POOL.submit(() ->{
+                COMMON_POOL.submit(() -> {
                     List<String> list = new ArrayList<>();
                     list.add("数据");
-                    localCache.put(asciiId,list);
+                    localCache.put(asciiId, list);
                 });
 
             }
-
-            socketChannel.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                socketChannel.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
