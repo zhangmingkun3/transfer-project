@@ -1,14 +1,18 @@
 package com.lp.transfer.transferproject.service;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.lp.transfer.transferproject.enums.Response;
+import com.lp.transfer.transferproject.utils.FileUtils;
+import com.lp.transfer.transferproject.utils.OpenExe;
+import com.lp.transfer.transferproject.utils.WriteExcel;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.io.DataInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -38,9 +42,23 @@ public class SocketServer {
     @Value("${socket.port}")
     private Integer port;
 
+    @Value("${transfer.programPath}")
+    private String programPath;
+
+    @Value("${transfer.sourcePath}")
+    private String sourcePath;
+
+    @Value("${transfer.sourceName}")
+    private String sourceName;
+
+    @Value("${transfer.sinkPath}")
+    private String sinkPath;
+
     private ServerSocket serverSocket;
     private ExecutorService executorService = Executors.newCachedThreadPool();
     private static Selector selector;
+
+    public static final Integer DATA_NUM = 1000*36;
 
     /**
      * 发送数据缓冲区
@@ -104,70 +122,105 @@ public class SocketServer {
             //连接可读请求，处理读业务逻辑
             socketChannel = (SocketChannel) selectionKey.channel();
 
-//            StringBuilder msg = new StringBuilder();
-            ByteBuffer buffer = ByteBuffer.allocate(1024);
+            ByteBuffer buffer = ByteBuffer.allocate(1009);
             ArrayList<Byte> byteList = new ArrayList<>();
 
             while (socketChannel.read(buffer) > 0) {
                 buffer.flip();
                 while (buffer.hasRemaining()) {
                     byte[] bytes = buffer.get(new byte[buffer.limit()]).array();
-//                    msg.append(new String(buffer.get(new byte[buffer.limit()]).array()));
                     for (byte b : bytes) {
                         byteList.add(b);
                     }
                 }
                 buffer.clear();
             }
-//            System.err.println("收到客户端消息:" + msg);
 
             byte[] out = toPrimitives(byteList.toArray(new Byte[0]));
 
-            // 解析
             String asciiId = bytesToHexString(out);
-            String id = AsciiStringToString(asciiId).replace("|", "");
-            System.out.println("AsciiId : " + asciiId + " id ：" + id);
+            String id = AsciiStringToString(asciiId).replace("|","");
+            String deviceId = id.substring(0,14);
+            String num = id.substring(15,16);
+            log.info("AsciiId={}, id={}, deviceId={}, num={}",asciiId,id,deviceId,num);
 
             List<Integer> totalList = new ArrayList<>();
             int sum = 0;
-            for (int i = 16; i < out.length; i += 2) {
+            for(int i = 18 ;i <out.length;i+=2){
                 byte low = out[i];
-                byte high = out[i + 1];
-                int x = merge(high, low);
-                short low_short = unsignedByteToShort(low);
-                short high_short = (short) (((high & 0x00FF) << 8));
-                System.out.println("low:" + low_short + "   high : " + high_short + "   sum :" + x);
-                sum += 1;
+                byte high = out[i+1];
+                int x = merge(high,low);
+                sum+=1;
                 totalList.add(x);
             }
 
-            System.out.println("总数：sum = " + sum + "   arrayList Size:" + totalList.size() + "  arrayList:" + JSON
-                    .toJSONString(totalList));
+            log.info("deviceId={},总数：" + sum + "   arrayList.Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList),deviceId);
 
-            String response = new String(out, 0, out.length);
-            log.info("datadadata {}", response);
-
-            if (null != localCache.getIfPresent(asciiId) && localCache.getIfPresent(asciiId).size() > 0) {
-                List<String> list = localCache.get(asciiId);
-                if (list.size() > 2999) {
-                    // 触发计算  调用exe程序
-
+            if (null != localCache.getIfPresent(deviceId) && localCache.getIfPresent(deviceId).size() > 0) {
+                List<Integer> list = localCache.get(deviceId);
+                list.addAll(totalList);
+                localCache.asMap().forEach((k,v) -> {
+                    log.info("缓存中数据 key={},value.size={}",k,v.size());
+                });
+                if (list.size() >= DATA_NUM) {
+                    // 写入excel  调用exe程序
+                    WriteExcel.dataWriteExcel(sourcePath,sourceName,null,list);
                     // 然后重新设置 Map 以及缓存
-                    localCache.put(asciiId, new ArrayList<>());
+                    localCache.put(deviceId, new ArrayList<>());
+
+                    // 调用exe
+                    File file = null;
+                    try {
+                        log.info("执行exe程序解析。。。");
+                        OpenExe.runExe(programPath);
+                        log.info("休眠等待中。。。。。。");
+                        Thread.sleep(1000);
+
+                        //读取文件，判断文件是否存在
+                        file = new File(sinkPath);
+                        JSONObject jsonObject = null;
+                        if (file.exists()){
+                            // 文件存在,判断文件是都最近创建
+                            jsonObject = FileUtils.readExcel(sinkPath);
+                        }else{
+                            log.info("继续休眠等待中。。。。。。");
+                            Thread.sleep(1000);
+                            if (file.exists()){
+                                jsonObject = FileUtils.readExcel(sinkPath);
+                            }else{
+                                log.info("{} 文件不存在。。。。。。",sinkPath);
+                            }
+                        }
+                    }catch (Exception e){
+                        e.getStackTrace();
+                        log.error("失败 " + e.getMessage());
+                    }finally {
+                        if (file != null){
+                            DataOutputStream dos = null;
+                            try {
+                                dos = new DataOutputStream(new FileOutputStream(file));
+                                dos.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            boolean delete = file.delete();
+                            log.info("删除生成的结果文件 {}",delete);
+                        }
+                    }
+
+
+
+                }else {
+                    localCache.put(deviceId, list);
                 }
 
-                list.add("数据");
-                localCache.put(asciiId, list);
-
             } else {
-
                 COMMON_POOL.submit(() -> {
-                    List<String> list = new ArrayList<>();
-                    list.add("数据");
-                    localCache.put(asciiId, list);
+                    localCache.put(deviceId, new ArrayList<>(totalList));
                 });
-
             }
+
+
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -216,7 +269,7 @@ public class SocketServer {
 
 
 
-        static byte[] toPrimitives(Byte[] oBytes) {
+     private static byte[] toPrimitives(Byte[] oBytes) {
         byte[] bytes = new byte[oBytes.length];
 
         for (int i = 0; i < oBytes.length; i++) {

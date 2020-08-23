@@ -1,4 +1,5 @@
 package com.lp.transfer.transferproject.utils;
+import com.lp.transfer.transferproject.service.SocketServer;
 import jdk.nashorn.internal.runtime.regexp.joni.Regex;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -8,10 +9,10 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.util.CollectionUtils;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @Author: zhangmingkun3
@@ -21,6 +22,7 @@ import java.util.Map;
 @Slf4j
 public class WriteExcel {
 
+    private static final Integer NUM = 1002;
     private static Map<String,String> cellName= new HashMap<>();
 
     static {
@@ -58,6 +60,93 @@ public class WriteExcel {
     }
 
 
+
+
+    /**
+     *
+     * @param filePath  excel存储路径
+     * @param fileName  excel文件名称
+     * @param sheetName sheet名称
+     */
+    public static void dataWriteExcel(String filePath,String fileName,String sheetName,List<Integer> list){
+        log.info("开始写入excel文件");
+        OutputStream outputStream = null;
+
+        if (StringUtils.isEmpty(filePath)){
+            throw new IllegalArgumentException("文件路径不能为空");
+        }else if (checkPath(filePath)){
+            throw new IllegalArgumentException("文件路径不符合格式");
+        }
+
+        if (StringUtils.isEmpty(sheetName)){
+            sheetName = "sheet1";
+        }
+        if (StringUtils.isBlank(fileName)) {
+            throw new IllegalArgumentException("文件后缀不能为空");
+        }
+
+        Workbook workbook;
+        if ("xls".equals(fileName.toLowerCase())) {
+            workbook = new HSSFWorkbook();
+        } else {
+            workbook = new XSSFWorkbook();
+        }
+        File newxlsFile = new File(filePath + fileName);
+
+        // 创建一个工作表
+        XSSFSheet sheet = (XSSFSheet) workbook.createSheet(sheetName);
+        // 设置表格默认列宽度为15个字节
+        sheet.setDefaultColumnWidth((short) 15);
+        // 生成样式
+        Map<String, CellStyle> styles = createStyles(workbook);
+
+
+        for (int j = 0; j < NUM; j ++){
+            if (j < 2){
+                Row row0 = sheet.createRow(0);
+                Row row1 = sheet.createRow(1);
+                for (int i = 0; i < cellName.size(); i++) {
+                    Cell cell = row0.createCell(i);
+                    Cell cell1 = row1.createCell(i);
+                    cell.setCellStyle(styles.get("header"));
+                    cell1.setCellStyle(styles.get("header"));
+                    String titleKey = String.valueOf(i+1);
+                    String title = cellName.get(titleKey);
+                    cell.setCellValue(titleKey);
+                    cell1.setCellValue(title);
+                }
+            }else{
+                Row rowNumber = sheet.createRow(j);
+                for (int i = 0; i < cellName.size(); i ++){
+
+                    int index = i + 1;
+                    Cell cellNumber = rowNumber.createCell(i);
+                    cellNumber.setCellValue(list.get(i*1000 + (j-2)));
+                    cellNumber.setCellStyle(styles.get("cell"));
+                }
+            }
+        }
+
+        try {
+            outputStream = new FileOutputStream(newxlsFile);
+            workbook.write(outputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                workbook.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
 
     /**
@@ -158,6 +247,7 @@ public class WriteExcel {
             }
         }
     }
+
 
 
     /**

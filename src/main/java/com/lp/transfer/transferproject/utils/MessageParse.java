@@ -19,7 +19,7 @@ public class MessageParse {
         if (src == null || src.length <= 0) {
             return null;
         }
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 18; i++) {
             int v = src[i] & 0xFF;
             String hv = Integer.toHexString(v);
             if (hv.length() < 2) {
