@@ -32,7 +32,7 @@ import java.util.function.Consumer;
 @Slf4j
 public class HttpClientUtils {
 
-    private String agent =  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/51.0.2704.79 Chrome/51.0.2704.79 Safari/537.36";
+    private static final String agent =  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/51.0.2704.79 Chrome/51.0.2704.79 Safari/537.36";
 
     /**
      * 发起HTTP请求
@@ -82,7 +82,7 @@ public class HttpClientUtils {
      * @throws ClientProtocolException
      * @throws IOException
      */
-    public String post(String address, Map<String, Object> params) throws ClientProtocolException, IOException {
+    public static String post(String address, Map<String, Object> params) throws IOException {
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
 
@@ -108,7 +108,7 @@ public class HttpClientUtils {
         }
     }
 
-    private List<NameValuePair> buildPostData(Map<String, Object> params) {
+    private static List<NameValuePair> buildPostData(Map<String, Object> params) {
         if (params == null || params.size() == 0) {
             return new ArrayList<NameValuePair>(0);
         }

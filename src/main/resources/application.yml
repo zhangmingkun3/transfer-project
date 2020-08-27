@@ -56,10 +56,13 @@ spring:
       enabled: true
 
 socket:
-  port: 18020
+  port: 6000
 
 transfer:
   programPath: C:\\Users\\Administrator\\Documents\\Main01.exe
   sourcePath: C:\\Download\\apache-tomcat-9.0.36\\\bin\\
   sourceName: PData36.xlsx
   sinkPath: C:\\Download\\apache-tomcat-9.0.36\\\bin\\Result.xlsx
+
+request:
+  httpUrl: http://123.56.96.214:8000/checkResult/getResult

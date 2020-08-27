@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.lp.transfer.transferproject.enums.Response;
 import com.lp.transfer.transferproject.utils.FileUtils;
+import com.lp.transfer.transferproject.utils.HttpClientUtils;
 import com.lp.transfer.transferproject.utils.OpenExe;
 import com.lp.transfer.transferproject.utils.WriteExcel;
 import lombok.Data;
@@ -19,10 +20,7 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import static com.lp.transfer.transferproject.utils.CacheUtils.localCache;
@@ -53,6 +51,10 @@ public class SocketServer {
 
     @Value("${transfer.sinkPath}")
     private String sinkPath;
+
+    @Value("${request.httpUrl}")
+    private String httpUrl;
+
 
     private ServerSocket serverSocket;
     private ExecutorService executorService = Executors.newCachedThreadPool();
@@ -179,18 +181,20 @@ public class SocketServer {
                         //读取文件，判断文件是否存在
                         file = new File(sinkPath);
                         JSONObject jsonObject = null;
+                        String response = null;
                         if (file.exists()){
                             // 文件存在,判断文件是都最近创建
-                            jsonObject = FileUtils.readExcel(sinkPath);
+                            response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
                         }else{
                             log.info("继续休眠等待中。。。。。。");
                             Thread.sleep(1000);
                             if (file.exists()){
-                                jsonObject = FileUtils.readExcel(sinkPath);
+                                response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
                             }else{
                                 log.info("{} 文件不存在。。。。。。",sinkPath);
                             }
                         }
+                        log.info("调用http接口完成，返回消息{}",response);
                     }catch (Exception e){
                         e.getStackTrace();
                         log.error("失败 " + e.getMessage());
@@ -208,12 +212,9 @@ public class SocketServer {
                         }
                     }
 
-
-
                 }else {
                     localCache.put(deviceId, list);
                 }
-
             } else {
                 COMMON_POOL.submit(() -> {
                     localCache.put(deviceId, new ArrayList<>(totalList));
@@ -225,11 +226,25 @@ public class SocketServer {
             e.printStackTrace();
         } finally {
             try {
+                assert socketChannel != null;
                 socketChannel.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    private String doHttpPost(JSONObject jsonObject,String deviceId){
+        Map<String,Object> param = new HashMap<>(4);
+        param.put("result",jsonObject.toJSONString());
+        param.put("deviceId",deviceId);
+        try {
+            return HttpClientUtils.post(httpUrl,param);
+        } catch (IOException e) {
+            log.info("调用http接口出现异常 {},{}",httpUrl,e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private void sendInfo(SocketChannel clientChannel, String msg){
