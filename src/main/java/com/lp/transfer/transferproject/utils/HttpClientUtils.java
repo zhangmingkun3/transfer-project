@@ -92,7 +92,7 @@ public class HttpClientUtils {
 
 
             StringEntity postingString = new StringEntity(JSON.toJSONString(params), "utf-8");
-            log.info("http请求参数{}",postingString);
+            log.info("http请求参数{}",JSON.toJSONString(params));
             httpPost.setEntity(postingString);
             httpPost.setHeader("Content-Type", "application/json");
             httpPost.setHeader("User-Agent", agent);

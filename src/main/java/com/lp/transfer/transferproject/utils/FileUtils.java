@@ -80,9 +80,22 @@ public class FileUtils {
         for (int j = 0; j < sheet.getLastRowNum() + 1; j++) {
             XSSFRow row = sheet.getRow(j);
             if (row != null) {
-                list1.add(row.getCell(0).getNumericCellValue());
-                list2.add(row.getCell(1).getNumericCellValue());
-                list3.add(row.getCell(2).getNumericCellValue());
+                if (null != row.getCell(0)){
+                    list1.add(row.getCell(0).getNumericCellValue());
+                }else {
+                    list1.add(0D);
+                }
+
+                if (null != row.getCell(1)){
+                    list2.add(row.getCell(1).getNumericCellValue());
+                }else {
+                    list2.add(0D);
+                }
+                if (null != row.getCell(2)){
+                    list3.add(row.getCell(2).getNumericCellValue());
+                }else {
+                    list3.add(0D);
+                }
             }
         }
 

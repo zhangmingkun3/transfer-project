@@ -64,13 +64,19 @@ public class SocketServer {
 
     public static final Integer DATA_NUM = 1000*36;
 
+    ByteBuffer totalBuffer = ByteBuffer.allocate(2018);
+
     /**
      * 发送数据缓冲区
      */
     private static ByteBuffer rBuffer = ByteBuffer.allocate(1024);
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws IOException {
 //        new SocketServer().start(8068);
+
+        String url = "http://123.56.96.214:8000/checkResult/getResult";
+        doHttpPostStatic(FileUtils.readExcel("C:\\Users\\User\\Desktop\\Result.xlsx"),"20200000000001",url);
+
     }
 
     @PostConstruct
@@ -105,10 +111,9 @@ public class SocketServer {
         }
     }
 
-    private void handle(SelectionKey selectionKey){
+    private void handle(SelectionKey selectionKey) {
         ServerSocketChannel serverSocketChannel = null;
         SocketChannel socketChannel = null;
-        int count = 0;
         if (selectionKey.isAcceptable()) {
 
             try {
@@ -120,157 +125,225 @@ public class SocketServer {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            assert socketChannel != null;
             sendInfo(socketChannel, "连接服务器成功!");
-            System.err.println("client IP :" + socketChannel.socket().getRemoteSocketAddress());
-        } else if (selectionKey.isReadable()) try {
-            //连接可读请求，处理读业务逻辑
-            socketChannel = (SocketChannel) selectionKey.channel();
+            System.out.println("client IP :" + socketChannel.socket().getRemoteSocketAddress());
+        } else if (selectionKey.isReadable()){
+            try {
+                //连接可读请求，处理读业务逻辑
+                socketChannel = (SocketChannel) selectionKey.channel();
 
-            ByteBuffer buffer = ByteBuffer.allocate(2018);
-            ArrayList<Byte> byteList = new ArrayList<>();
+//                Socket socket = socketChannel.socket();
+//                // 装饰流BufferedReader封装输入流（接收客户端的流）
+//                BufferedInputStream bis = new BufferedInputStream(
+//                        socket.getInputStream());
+//                ArrayList<Byte> byteLists = new ArrayList<>();
+//
+//                DataInputStream dis = new DataInputStream(bis);
+//
+//                byte[] tempchars = new byte[1009];
+//                int charsReadCount = 0;
+//
+//                while ((charsReadCount = dis.read(tempchars)) != -1) {
+//                    for(int i = 0 ; i < charsReadCount ; i++){
+//                        byteLists.add (tempchars[i]);
+//                    }
+//                }
+//                System.out.println("byteLists =" + byteLists.size());
 
 
-            while (socketChannel.read(buffer) > 0) {
-                buffer.flip();
-                while (buffer.hasRemaining()) {
-                    byte[] bytes = buffer.get(new byte[buffer.limit()]).array();
-                    for (byte b : bytes) {
-                        byteList.add(b);
-                    }
-                }
-                buffer.clear();
-            }
-            log.info("byteList.sixe={}",byteList.size());
-            byte[] out = toPrimitives(byteList.toArray(new Byte[0]));
+                ByteBuffer buffer = ByteBuffer.allocate(2018);
 
-            String asciiId = bytesToHexString(out);
-            log.info("asciiId={}",asciiId);
-            String deviceId = null;
-            List<Integer> totalList = new ArrayList<>();
-            if (StringUtils.isNotEmpty(asciiId)){
+                ByteBuffer buffer1 = ByteBuffer.allocate(2018);
+
+                ArrayList<Byte> byteList = new ArrayList<>();
+
+                int length = socketChannel.read(buffer);
+                System.out.println("length=" + length ) ;
+
                 try {
-                    String id = AsciiStringToString(asciiId).replace("|","");
-                    deviceId = id.substring(0,14);
-                    String num = id.substring(14,16);
-                    log.info("AsciiId={}, id={}, deviceId={}, num={}",asciiId,id,deviceId,num);
-
-                    int sum = 0;
-                    for(int i = 18 ;i <out.length;i+=2){
-                        int x = 0;
-                        try {
-                            byte low = out[i];
-                            byte high = out[i+1];
-                            x = merge(high,low);
-                            sum+=1;
-                        }catch (Exception e){
-                            log.info("解析数据出现异常 {}",e.getMessage());
-                            e.getStackTrace();
-                        }finally {
-                            totalList.add(x);
-                        }
-                    }
-                    log.info("deviceId={},总数：" + sum + "   arrayList.Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList),deviceId);
-                }catch (Exception ex){
-                    log.info("解析数据出现问题 {}",ex.getMessage());
-                    ex.getStackTrace();
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
 
-
-
-                if (null != localCache.getIfPresent(deviceId) && localCache.getIfPresent(deviceId).size() > 0) {
-                    List<Integer> list = localCache.get(deviceId);
-                    list.addAll(totalList);
-                    localCache.asMap().forEach((k,v) -> {
-                        log.info("缓存中数据 key={},value.size={}",k,v.size());
-                    });
-                    if (list.size() >= DATA_NUM) {
-                        // 写入excel  调用exe程序
-                        WriteExcel.dataWriteExcel(sourcePath,sourceName,null,list);
-                        // 然后重新设置 Map 以及缓存
-                        localCache.put(deviceId, new ArrayList<>());
-
-                        // 调用exe
-                        File file = null;
-                        try {
-                            log.info("执行exe程序解析。。。");
-                            OpenExe.runExe(programPath);
-                            log.info("休眠等待中。。。。。。");
-                            Thread.sleep(1000);
-
-                            //读取文件，判断文件是否存在
-                            file = new File(sinkPath);
-                            JSONObject jsonObject = null;
-                            String response = null;
-                            if (file.exists()){
-                                // 文件存在,判断文件是都最近创建
-                                response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
-                            }else{
-                                log.info("继续休眠等待中。。。。。。");
-                                Thread.sleep(1000);
-                                if (file.exists()){
-                                    response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
-                                }else{
-                                    log.info("{} 文件不存在。。。。。。",sinkPath);
-                                }
-                            }
-                            log.info("调用http接口完成，返回消息{}",response);
-                        }catch (Exception e){
-                            e.getStackTrace();
-                            log.error("失败 " + e.getMessage());
-                        }finally {
-                            if (file != null){
-                                DataOutputStream dos = null;
-                                try {
-                                    dos = new DataOutputStream(new FileOutputStream(file));
-                                    dos.close();
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                                boolean delete = file.delete();
-                                log.info("删除生成的结果文件 {}",delete);
+                socketChannel = (SocketChannel) selectionKey.channel();
+                int length1 = socketChannel.read(buffer1);
+                System.out.println("length=" + length + ",length1=" + length1) ;
+                while (length > 0) {
+                    buffer.flip();
+                    buffer1.flip();
+                    while (buffer.hasRemaining()) {
+                        byte[] bytes = buffer.get(new byte[buffer.limit()]).array();
+                        byte[] bytes1 = buffer1.get(new byte[buffer1.limit()]).array();
+                        System.out.println("字节列表1:"+Arrays.toString(bytes) );
+                        System.out.println("字节列表2:"+Arrays.toString(bytes1));
+                        for (byte b : bytes) {
+                            if (byteList.size() < length){
+                                byteList.add(b);
                             }
                         }
+                        for (byte b : bytes1) {
+                            if (byteList.size() < length + length1){
+                                byteList.add(b);
+                            }
+                        }
+                    }
+                    length = 0;
+                    length1 = 0;
+                    buffer.clear();
+                    buffer1.clear();
+                }
 
-                    }else {
+                log.info("byteList.sixe={} {}", byteList.size(),JSON.toJSON(byteList));
+                byte[] out = toPrimitives(byteList.toArray(new Byte[0]));
+
+                String asciiId = bytesToHexString(out);
+                log.info("asciiId={}", asciiId);
+                String deviceId = null;
+                List<Integer> totalList = new ArrayList<>();
+                if (StringUtils.isNotEmpty(asciiId)) {
+                    try {
+                        String id = AsciiStringToString(asciiId).replace("|", "");
+                        deviceId = id.substring(0, 14);
+                        String num = id.substring(14, 16);
+                        log.info("AsciiId={}, id={}, deviceId={}, num={}", asciiId, id, deviceId, num);
+
+                        int sum = 0;
+                        for (int i = 18; i < out.length; i += 2) {
+                            int x = 0;
+                            try {
+                                byte low = out[i];
+                                byte high = out[i + 1];
+                                x = merge(high, low);
+                                sum += 1;
+                            } catch (Exception e) {
+                                log.info("解析数据出现异常 {}", e.getMessage());
+                                e.getStackTrace();
+                            } finally {
+                                totalList.add(x);
+                            }
+                        }
+                        log.info("deviceId={},总数：" + sum + "   arrayList.Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList), deviceId);
+                    } catch (Exception ex) {
+                        log.info("解析数据出现问题 {}", ex.getMessage());
+                        ex.getStackTrace();
+                    }
+
+
+                    if (null != localCache.getIfPresent(deviceId) && localCache.getIfPresent(deviceId).size() > 0) {
+                        List<Integer> list = localCache.get(deviceId);
+                        list.addAll(totalList);
+                        localCache.asMap().forEach((k, v) -> {
+                            log.info("缓存中数据 key={},value.size={}", k, v.size());
+                        });
+                        if (list.size() >= DATA_NUM) {
+                            // 写入excel  调用exe程序
+                            WriteExcel.dataWriteExcel(sourcePath, sourceName, null, list);
+                            // 然后重新设置 Map 以及缓存
+                            localCache.put(deviceId, new ArrayList<>());
+
+                            // 调用exe
+                            File file = null;
+                            try {
+                                log.info("执行exe程序解析。。。");
+                                OpenExe.runExe(programPath);
+                                log.info("休眠等待中。。。。。。");
+                                Thread.sleep(10000);
+
+                                //读取文件，判断文件是否存在
+                                file = new File(sinkPath);
+                                String response = null;
+                                if (file.exists() ) {
+                                    log.info("文件存在。。。。。。");
+                                    // 文件存在,判断文件是都最近创建
+                                    response = doHttpPost(FileUtils.readExcel(sinkPath), deviceId);
+                                } else {
+                                    log.info("继续休眠等待中。。。。。。");
+                                    Thread.sleep(10000);
+                                    if (file.exists()) {
+                                        response = doHttpPost(FileUtils.readExcel(sinkPath), deviceId);
+                                    } else {
+                                        log.info("{} 文件不存在或大小为0。。。。。。", sinkPath);
+                                    }
+                                }
+                                log.info("调用http接口完成，返回消息{}", response);
+                            } catch (Exception e) {
+                                e.getStackTrace();
+                                log.error("失败 {}" , e.getMessage());
+                            } finally {
+                                if (file != null){
+                                    DataOutputStream dos = null;
+                                    try {
+                                        dos = new DataOutputStream(new FileOutputStream(file));
+                                        dos.close();
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                    boolean delete = file.delete();
+                                    log.info("删除生成的结果文件 {}",delete);
+                                }
+                            }
+
+                        } else {
 
                             localCache.put(deviceId, list);
 
-                    }
-                } else {
-                    String finalDeviceId1 = deviceId;
-                    if (!CollectionUtils.isEmpty(totalList) && totalList.size() >= 1000){
-                        COMMON_POOL.submit(() -> {
-                            localCache.put(finalDeviceId1, new ArrayList<>(totalList));
-                        });
+                        }
+                    } else {
+                        String finalDeviceId1 = deviceId;
+                        Long id = Long.getLong(finalDeviceId1);
+                        if (!CollectionUtils.isEmpty(totalList) && totalList.size() >= 1000) {
+                            COMMON_POOL.submit(() -> {
+                                localCache.put(finalDeviceId1, new ArrayList<>(totalList));
+                            });
+                        }
                     }
                 }
-            }
 
-        } catch (IOException e) {
-            e.printStackTrace();
-            try {
-                socketChannel.close();
-            } catch (IOException ex) {
-                ex.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+                try {
+                    socketChannel.close();
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+//                        }finally {
+//                            try {
+//                                socketChannel.close();
+//                            } catch (IOException ex) {
+//                                ex.printStackTrace();
+//                            }
             }
-//        }finally {
-//            try {
-//                socketChannel.close();
-//            } catch (IOException ex) {
-//                ex.printStackTrace();
-//            }
-        }
+    }
     }
 
     private String doHttpPost(JSONObject jsonObject,String deviceId){
-        Map<String,Object> param = new HashMap<>(4);
-        param.put("result",jsonObject.toJSONString());
-        param.put("deviceId",deviceId);
-        try {
-            return HttpClientUtils.post(httpUrl,param);
-        } catch (IOException e) {
-            log.info("调用http接口出现异常 {},{}",httpUrl,e.getMessage());
-            e.printStackTrace();
+        if (null != jsonObject){
+            Map<String,Object> param = new HashMap<>(4);
+            param.put("result",jsonObject);
+            param.put("deviceId",deviceId);
+            try {
+                return HttpClientUtils.post(httpUrl,param);
+            } catch (IOException e) {
+                log.info("调用http接口出现异常 {},{}",httpUrl,e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+
+    private static String doHttpPostStatic(JSONObject jsonObject,String deviceId,String url){
+        if (null != jsonObject){
+            Map<String,Object> param = new HashMap<>(4);
+            param.put("result",jsonObject);
+            param.put("deviceId",deviceId);
+            try {
+                return HttpClientUtils.post(url,param);
+            } catch (IOException e) {
+                log.info("调用http接口出现异常 {},{}",url,e.getMessage());
+                e.printStackTrace();
+            }
         }
         return null;
     }
@@ -308,6 +381,7 @@ public class SocketServer {
 //        sendInfo(clientChannel, "连接服务器成功!");
         System.err.println("client IP :" + clientChannel.socket().getRemoteSocketAddress());
     }
+
 
 
 
