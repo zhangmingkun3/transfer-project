@@ -9,8 +9,10 @@ import com.lp.transfer.transferproject.utils.OpenExe;
 import com.lp.transfer.transferproject.utils.WriteExcel;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.*;
@@ -124,8 +126,9 @@ public class SocketServer {
             //连接可读请求，处理读业务逻辑
             socketChannel = (SocketChannel) selectionKey.channel();
 
-            ByteBuffer buffer = ByteBuffer.allocate(1009);
+            ByteBuffer buffer = ByteBuffer.allocate(2018);
             ArrayList<Byte> byteList = new ArrayList<>();
+
 
             while (socketChannel.read(buffer) > 0) {
                 buffer.flip();
@@ -137,100 +140,125 @@ public class SocketServer {
                 }
                 buffer.clear();
             }
-
+            log.info("byteList.sixe={}",byteList.size());
             byte[] out = toPrimitives(byteList.toArray(new Byte[0]));
 
             String asciiId = bytesToHexString(out);
-            String id = AsciiStringToString(asciiId).replace("|","");
-            String deviceId = id.substring(0,14);
-            String num = id.substring(15,16);
-            log.info("AsciiId={}, id={}, deviceId={}, num={}",asciiId,id,deviceId,num);
-
+            log.info("asciiId={}",asciiId);
+            String deviceId = null;
             List<Integer> totalList = new ArrayList<>();
-            int sum = 0;
-            for(int i = 18 ;i <out.length;i+=2){
-                byte low = out[i];
-                byte high = out[i+1];
-                int x = merge(high,low);
-                sum+=1;
-                totalList.add(x);
-            }
+            if (StringUtils.isNotEmpty(asciiId)){
+                try {
+                    String id = AsciiStringToString(asciiId).replace("|","");
+                    deviceId = id.substring(0,14);
+                    String num = id.substring(14,16);
+                    log.info("AsciiId={}, id={}, deviceId={}, num={}",asciiId,id,deviceId,num);
 
-            log.info("deviceId={},总数：" + sum + "   arrayList.Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList),deviceId);
-
-            if (null != localCache.getIfPresent(deviceId) && localCache.getIfPresent(deviceId).size() > 0) {
-                List<Integer> list = localCache.get(deviceId);
-                list.addAll(totalList);
-                localCache.asMap().forEach((k,v) -> {
-                    log.info("缓存中数据 key={},value.size={}",k,v.size());
-                });
-                if (list.size() >= DATA_NUM) {
-                    // 写入excel  调用exe程序
-                    WriteExcel.dataWriteExcel(sourcePath,sourceName,null,list);
-                    // 然后重新设置 Map 以及缓存
-                    localCache.put(deviceId, new ArrayList<>());
-
-                    // 调用exe
-                    File file = null;
-                    try {
-                        log.info("执行exe程序解析。。。");
-                        OpenExe.runExe(programPath);
-                        log.info("休眠等待中。。。。。。");
-                        Thread.sleep(1000);
-
-                        //读取文件，判断文件是否存在
-                        file = new File(sinkPath);
-                        JSONObject jsonObject = null;
-                        String response = null;
-                        if (file.exists()){
-                            // 文件存在,判断文件是都最近创建
-                            response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
-                        }else{
-                            log.info("继续休眠等待中。。。。。。");
-                            Thread.sleep(1000);
-                            if (file.exists()){
-                                response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
-                            }else{
-                                log.info("{} 文件不存在。。。。。。",sinkPath);
-                            }
-                        }
-                        log.info("调用http接口完成，返回消息{}",response);
-                    }catch (Exception e){
-                        e.getStackTrace();
-                        log.error("失败 " + e.getMessage());
-                    }finally {
-                        if (file != null){
-                            DataOutputStream dos = null;
-                            try {
-                                dos = new DataOutputStream(new FileOutputStream(file));
-                                dos.close();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                            boolean delete = file.delete();
-                            log.info("删除生成的结果文件 {}",delete);
+                    int sum = 0;
+                    for(int i = 18 ;i <out.length;i+=2){
+                        int x = 0;
+                        try {
+                            byte low = out[i];
+                            byte high = out[i+1];
+                            x = merge(high,low);
+                            sum+=1;
+                        }catch (Exception e){
+                            log.info("解析数据出现异常 {}",e.getMessage());
+                            e.getStackTrace();
+                        }finally {
+                            totalList.add(x);
                         }
                     }
-
-                }else {
-                    localCache.put(deviceId, list);
+                    log.info("deviceId={},总数：" + sum + "   arrayList.Size:" + totalList.size() + "  arrayList:" + JSON.toJSONString(totalList),deviceId);
+                }catch (Exception ex){
+                    log.info("解析数据出现问题 {}",ex.getMessage());
+                    ex.getStackTrace();
                 }
-            } else {
-                COMMON_POOL.submit(() -> {
-                    localCache.put(deviceId, new ArrayList<>(totalList));
-                });
-            }
 
+
+
+                if (null != localCache.getIfPresent(deviceId) && localCache.getIfPresent(deviceId).size() > 0) {
+                    List<Integer> list = localCache.get(deviceId);
+                    list.addAll(totalList);
+                    localCache.asMap().forEach((k,v) -> {
+                        log.info("缓存中数据 key={},value.size={}",k,v.size());
+                    });
+                    if (list.size() >= DATA_NUM) {
+                        // 写入excel  调用exe程序
+                        WriteExcel.dataWriteExcel(sourcePath,sourceName,null,list);
+                        // 然后重新设置 Map 以及缓存
+                        localCache.put(deviceId, new ArrayList<>());
+
+                        // 调用exe
+                        File file = null;
+                        try {
+                            log.info("执行exe程序解析。。。");
+                            OpenExe.runExe(programPath);
+                            log.info("休眠等待中。。。。。。");
+                            Thread.sleep(1000);
+
+                            //读取文件，判断文件是否存在
+                            file = new File(sinkPath);
+                            JSONObject jsonObject = null;
+                            String response = null;
+                            if (file.exists()){
+                                // 文件存在,判断文件是都最近创建
+                                response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
+                            }else{
+                                log.info("继续休眠等待中。。。。。。");
+                                Thread.sleep(1000);
+                                if (file.exists()){
+                                    response = doHttpPost(FileUtils.readExcel(sinkPath),deviceId);
+                                }else{
+                                    log.info("{} 文件不存在。。。。。。",sinkPath);
+                                }
+                            }
+                            log.info("调用http接口完成，返回消息{}",response);
+                        }catch (Exception e){
+                            e.getStackTrace();
+                            log.error("失败 " + e.getMessage());
+                        }finally {
+                            if (file != null){
+                                DataOutputStream dos = null;
+                                try {
+                                    dos = new DataOutputStream(new FileOutputStream(file));
+                                    dos.close();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                                boolean delete = file.delete();
+                                log.info("删除生成的结果文件 {}",delete);
+                            }
+                        }
+
+                    }else {
+
+                            localCache.put(deviceId, list);
+
+                    }
+                } else {
+                    String finalDeviceId1 = deviceId;
+                    if (!CollectionUtils.isEmpty(totalList) && totalList.size() >= 1000){
+                        COMMON_POOL.submit(() -> {
+                            localCache.put(finalDeviceId1, new ArrayList<>(totalList));
+                        });
+                    }
+                }
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
             try {
-                assert socketChannel != null;
                 socketChannel.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ex) {
+                ex.printStackTrace();
             }
+//        }finally {
+//            try {
+//                socketChannel.close();
+//            } catch (IOException ex) {
+//                ex.printStackTrace();
+//            }
         }
     }
 

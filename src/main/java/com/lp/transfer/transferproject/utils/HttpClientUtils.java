@@ -89,9 +89,12 @@ public class HttpClientUtils {
         HttpPost httpPost = new HttpPost(address);
         org.apache.http.HttpResponse httpResponse = null;
         try {
-            List<NameValuePair> data = buildPostData(params);
-            httpPost.setEntity(new UrlEncodedFormEntity(data, HTTP.UTF_8));
-            httpPost.setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+
+
+            StringEntity postingString = new StringEntity(JSON.toJSONString(params), "utf-8");
+            log.info("http请求参数{}",postingString);
+            httpPost.setEntity(postingString);
+            httpPost.setHeader("Content-Type", "application/json");
             httpPost.setHeader("User-Agent", agent);
 
             httpResponse = httpClient.execute(httpPost);
