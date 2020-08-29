@@ -60,7 +60,7 @@ socket:
 
 transfer:
   programPath: C:\\Download\\apache-tomcat-9.0.36\\\bin\\Main01.exe
-  sourcePath: C:\\Users\\User\Desktop\\
+  sourcePath: C:\\Download\\apache-tomcat-9.0.36\\\bin\\
   sourceName: PData36.xlsx
   sinkPath: C:\\Download\\apache-tomcat-9.0.36\\\bin\\Result.xlsx
 
