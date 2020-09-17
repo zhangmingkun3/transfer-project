@@ -5,8 +5,11 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import org.springframework.boot.autoconfigure.cache.CacheProperties;
 
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -29,5 +32,7 @@ public class CacheUtils {
                     return new ArrayList<>();
                 }
             });
+
+    public static Map<SocketAddress,List<Byte>> waitingData = new ConcurrentHashMap<>(2);
 
 }
