@@ -109,7 +109,6 @@ public class SocketServer {
         ServerSocketChannel serverSocketChannel = null;
         SocketChannel socketChannel = null;
         if (selectionKey.isAcceptable()) {
-
             try {
                 //新连接请求，注册到选择器中   每有客户端连接，即注册通信信道为可读
                 serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
@@ -131,32 +130,35 @@ public class SocketServer {
                 int length = socketChannel.read(buffer);
 
                 SocketAddress socketAddress = socketChannel.socket().getRemoteSocketAddress();
-                if (length < DATA_CAPACITY){
-                    log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据",socketAddress,length);
 
-                    dataTransfer(length,buffer,socketAddress,byteList);
-                    if (CollectionUtils.isNotEmpty(waitingData.get(socketAddress))){
-                        log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成统一处理");
-                        byteList.addAll(waitingData.get(socketAddress));
-                        // 清空集合中数据，以便下一次存储
-                        waitingData.put(socketAddress,null);
+                COMMON_POOL.submit(() -> {
+                    if (length < DATA_CAPACITY){
+                        log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据",socketAddress,length);
+
+                        dataTransfer(length,buffer,socketAddress,byteList);
+                        if (CollectionUtils.isNotEmpty(waitingData.get(socketAddress))){
+                            log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成统一处理");
+                            byteList.addAll(waitingData.get(socketAddress));
+                            // 清空集合中数据，以便下一次存储
+                            waitingData.put(socketAddress,null);
+                        }else{
+                            waitingData.put(socketAddress,byteList);
+                            byteList.clear();
+                        }
                     }else{
-                        waitingData.put(socketAddress,byteList);
-                        byteList.clear();
+                        log.info("{},数据接收数量{}，解析完成直接处理",socketAddress);
+                        dataTransfer(length,buffer,socketAddress,byteList);
                     }
-                }else{
-                    log.info("{},数据接收数量{}，解析完成直接处理",socketAddress);
-                    dataTransfer(length,buffer,socketAddress,byteList);
-                }
 
 
-                log.info("byteList.sixe={} {}", byteList.size(),JSON.toJSON(byteList));
-                if (CollectionUtils.isNotEmpty(byteList)){
-                    dataAnalysis(byteList);
-                }
-
+                    log.info("byteList.sixe={} {}", byteList.size(),JSON.toJSON(byteList));
+                    if (CollectionUtils.isNotEmpty(byteList)){
+                        dataAnalysis(byteList);
+                    }
+                });
 
             } catch (IOException e) {
+                log.info("出现异常关闭连接");
                 e.printStackTrace();
                 try {
                     socketChannel.close();
@@ -302,16 +304,13 @@ public class SocketServer {
                 }
 
             } else {
-
                 localCache.put(deviceId, list);
 
             }
         } else {
             Long id = Long.getLong(deviceId);
             if (!CollectionUtils.isEmpty(totalList) && totalList.size() >= 1000) {
-                COMMON_POOL.submit(() -> {
-                    localCache.put(deviceId, new ArrayList<>(totalList));
-                });
+                localCache.put(deviceId, new ArrayList<>(totalList));
             }
         }
     }
