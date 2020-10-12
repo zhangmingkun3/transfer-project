@@ -130,28 +130,28 @@ public class SocketServer {
                 int length = socketChannel.read(buffer);
 
                 SocketAddress socketAddress = socketChannel.socket().getRemoteSocketAddress();
+                log.info("==========================================================================");
                 if (length < DATA_CAPACITY){
                     log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据，{}",socketAddress,length,JSON.toJSONString(waitingData.get(socketAddress)));
 
                     dataTransfer(length,buffer,socketAddress,byteList);
                     if (CollectionUtils.isNotEmpty(waitingData.get(socketAddress))){
-                        log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成统一处理");
+                        log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成进行统一处理");
                         byteList.addAll(waitingData.get(socketAddress));
                         // 清空集合中数据，以便下一次存储
                         waitingData.remove(socketAddress);
                     }else{
-                        log.info("waitingData中数据是空，说明当前第一次传输数据");
+                        log.info("waitingData中数据是空，说明当前第一次传输数据,更新waitingData，等待数据补齐");
                         waitingData.put(socketAddress,byteList);
                         byteList.clear();
                     }
                 }else{
-                    log.info("{},数据接收数量{}，解析完成直接处理",socketAddress);
+                    log.info("{},数据接收数量{}，字节解析完成直接处理",socketAddress,waitingData.get(socketAddress).size());
                     dataTransfer(length,buffer,socketAddress,byteList);
                 }
 
-
-                log.info("byteList.sixe={} {}", byteList.size(),JSON.toJSON(byteList));
                 if (CollectionUtils.isNotEmpty(byteList)){
+                    log.info("{} byteList不为空",socketAddress);
                     dataAnalysis(byteList);
                 }
 
