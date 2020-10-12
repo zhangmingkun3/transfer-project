@@ -130,37 +130,33 @@ public class SocketServer {
                 int length = socketChannel.read(buffer);
 
                 SocketAddress socketAddress = socketChannel.socket().getRemoteSocketAddress();
+                if (length < DATA_CAPACITY){
+                    log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据，{}",socketAddress,length,JSON.toJSONString(waitingData.get(socketAddress)));
 
-                COMMON_POOL.submit(() -> {
-                    if (length < DATA_CAPACITY){
-                        log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据,共享集合中数据:{}",socketAddress,length,waitingData.get(socketAddress).size());
-
-                        dataTransfer(length,buffer,socketAddress,byteList);
-                        if (CollectionUtils.isNotEmpty(waitingData.get(socketAddress))){
-                            log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成统一处理");
-                            byteList.addAll(waitingData.get(socketAddress));
-                            // 清空集合中数据，以便下一次存储
-                            waitingData.remove(socketAddress);
-                        }else{
-                            log.info("waitingData中数据为空，说明当前接收数据是第一次传输数据");
-                            waitingData.put(socketAddress,byteList);
-                            log.info("查看共享存储中元素内容 {}",JSON.toJSONString(waitingData));
-                            byteList.clear();
-                        }
+                    dataTransfer(length,buffer,socketAddress,byteList);
+                    if (CollectionUtils.isNotEmpty(waitingData.get(socketAddress))){
+                        log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成统一处理");
+                        byteList.addAll(waitingData.get(socketAddress));
+                        // 清空集合中数据，以便下一次存储
+                        waitingData.remove(socketAddress);
                     }else{
-                        log.info("{},数据接收数量{}，解析完成直接处理",socketAddress);
-                        dataTransfer(length,buffer,socketAddress,byteList);
+                        log.info("waitingData中数据是空，说明当前第一次传输数据");
+                        waitingData.put(socketAddress,byteList);
+                        byteList.clear();
                     }
+                }else{
+                    log.info("{},数据接收数量{}，解析完成直接处理",socketAddress);
+                    dataTransfer(length,buffer,socketAddress,byteList);
+                }
 
 
-                    log.info("byteList.sixe={} {}", byteList.size(),JSON.toJSON(byteList));
-                    if (CollectionUtils.isNotEmpty(byteList)){
-                        dataAnalysis(byteList);
-                    }
-                });
+                log.info("byteList.sixe={} {}", byteList.size(),JSON.toJSON(byteList));
+                if (CollectionUtils.isNotEmpty(byteList)){
+                    dataAnalysis(byteList);
+                }
+
 
             } catch (IOException e) {
-                log.info("出现异常关闭连接");
                 e.printStackTrace();
                 try {
                     socketChannel.close();
@@ -196,7 +192,7 @@ public class SocketServer {
                     }
                 }
             }
-            log.info("{},byteList内元素数量{}", socketAddress, byteList.size());
+            log.info("byteList={}", JSON.toJSONString(byteList));
             length = 0;
             buffer.clear();
         }
@@ -307,13 +303,16 @@ public class SocketServer {
                 }
 
             } else {
+
                 localCache.put(deviceId, list);
 
             }
         } else {
             Long id = Long.getLong(deviceId);
             if (!CollectionUtils.isEmpty(totalList) && totalList.size() >= 1000) {
-                localCache.put(deviceId, new ArrayList<>(totalList));
+                COMMON_POOL.submit(() -> {
+                    localCache.put(deviceId, new ArrayList<>(totalList));
+                });
             }
         }
     }
