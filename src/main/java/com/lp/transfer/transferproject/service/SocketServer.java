@@ -133,16 +133,18 @@ public class SocketServer {
 
                 COMMON_POOL.submit(() -> {
                     if (length < DATA_CAPACITY){
-                        log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据",socketAddress,length);
+                        log.info("{},数据接收数量{}，解析完成后判定是第一次传输数据还是补齐数据,共享集合中数据:{}",socketAddress,length,waitingData.get(socketAddress).size());
 
                         dataTransfer(length,buffer,socketAddress,byteList);
                         if (CollectionUtils.isNotEmpty(waitingData.get(socketAddress))){
                             log.info("waitingData中数据非空，说明当前接收数据是补齐数据,接收完成统一处理");
                             byteList.addAll(waitingData.get(socketAddress));
                             // 清空集合中数据，以便下一次存储
-                            waitingData.put(socketAddress,null);
+                            waitingData.remove(socketAddress);
                         }else{
+                            log.info("waitingData中数据为空，说明当前接收数据是第一次传输数据");
                             waitingData.put(socketAddress,byteList);
+                            log.info("查看共享存储中元素内容 {}",JSON.toJSONString(waitingData));
                             byteList.clear();
                         }
                     }else{
@@ -194,6 +196,7 @@ public class SocketServer {
                     }
                 }
             }
+            log.info("{},byteList内元素数量{}", socketAddress, byteList.size());
             length = 0;
             buffer.clear();
         }
